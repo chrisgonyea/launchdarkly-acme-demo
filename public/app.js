@@ -71,14 +71,14 @@ const PRODUCTS = [
   { id: 'p5', name: 'Noise-Cancel Headphones', price: 199, emoji: '🎧', color: '#e9e5f7' },
   { id: 'p6', name: 'Desk Plant', price: 24, emoji: '🪴', color: '#e3f2df' },
 ];
-const RECOMMENDED = ['p5', 'p2', 'p4', 'p1'];
-
 // --- page elements -----------------------------------------------------------
 const $ = (id) => document.getElementById(id);
 const personaSelect = $('persona-select');
 const bugToggle = $('bug-toggle');
 let cartCount = 0;
-let errorLoop = null; // repeats error reports while the "bug" is live
+let retryTimer = null; // while the carousel is failing, it retries every few seconds
+let carouselRun = 0; // ignores slow responses from an earlier render
+let lastWatchdogState = null;
 let quiet = true; // true while the page itself is loading flag values (start, shopper switch)
 let lastCarouselStatus = null; // last carousel status sent to the watchdog
 
@@ -87,11 +87,12 @@ let lastCarouselStatus = null; // last carousel status sent to the watchdog
 // =============================================================================
 const { clientSideId, watchdogEnabled } = await fetch('/api/config').then((r) => r.json());
 if (watchdogEnabled) {
-  const { state } = await fetch('/api/watchdog').then((r) => r.json());
-  showWatchdog(state);
+  await refreshWatchdog();
+  setInterval(refreshWatchdog, 2000); // keep the demo panel current
 } else {
   $('watchdog-status').textContent = 'off (no trigger URL)';
 }
+bugToggle.checked = (await fetch('/api/simulate-bug').then((r) => r.json())).broken;
 
 // LD: create the client with the Client-side ID and the starting context.
 const ldClient = createClient(clientSideId, PERSONAS.anonymous.context);
@@ -138,8 +139,10 @@ personaSelect.addEventListener('change', async () => {
   renderAll();
 });
 
-bugToggle.addEventListener('change', () => {
-  log(bugToggle.checked ? 'bug simulation ON' : 'bug simulation OFF');
+// Demo control: break or fix the recommendations service on the server.
+bugToggle.addEventListener('change', async () => {
+  await postJson('/api/simulate-bug', { broken: bugToggle.checked });
+  log(bugToggle.checked ? 'recommendations service BROKEN (simulated)' : 'recommendations service fixed');
   renderCarousel();
 });
 
@@ -180,7 +183,12 @@ function renderBanner() {
 }
 
 // Part 1: the new feature behind recommendations-carousel.
-function renderCarousel() {
+// The carousel loads its products from the recommendations service. If that
+// call fails, the carousel shows an error, reports it to the watchdog, and
+// tries again in 3 seconds (standing in for many shoppers hitting the bug).
+async function renderCarousel() {
+  const run = ++carouselRun;
+  clearTimeout(retryTimer);
   const showCarousel = ldClient.variation(CAROUSEL_FLAG, false);
   $('flag-carousel').innerHTML = statusHtml(showCarousel);
   const el = $('recommendations');
@@ -188,37 +196,32 @@ function renderCarousel() {
   if (!showCarousel) {
     // Flag OFF: the old experience, with no carousel at all.
     el.innerHTML = '';
-    stopErrorLoop();
     reportCarouselStatus(false, true);
     return;
   }
 
   try {
-    el.innerHTML = buildCarouselHtml();
+    const res = await fetch('/api/recommendations');
+    if (!res.ok) throw new Error((await res.json()).error ?? `HTTP ${res.status}`);
+    const { items } = await res.json();
+    if (run !== carouselRun) return; // a newer render has started; let it win
+
+    const cards = items.map((id) => productCard(PRODUCTS.find((p) => p.id === id))).join('');
+    el.innerHTML = `<div class="carousel">
+        <h2>Recommended for you <span class="badge">NEW</span></h2>
+        <div class="track">${cards}</div>
+      </div>`;
     el.querySelectorAll('button[data-product]').forEach((b) => {
       b.onclick = () => addToCart(b.dataset.product, 'carousel');
     });
-    stopErrorLoop();
     reportCarouselStatus(true, true);
   } catch (err) {
-    // The "bug" fired. Show a broken state and start reporting errors to the
-    // server, which is what a real error tracker would do.
+    if (run !== carouselRun) return;
     el.innerHTML = `<div class="carousel broken">⚠️ Recommendations failed to load: ${err.message}</div>`;
-    startErrorLoop(err);
     reportCarouselStatus(true, false);
+    reportError(err);
+    retryTimer = setTimeout(renderCarousel, 3000);
   }
-}
-
-function buildCarouselHtml() {
-  if (bugToggle.checked) {
-    // Pretend the new code has a bug, e.g. the recommendations API changed shape.
-    throw new Error('Cannot read properties of undefined (reading "items")');
-  }
-  const cards = RECOMMENDED.map((id) => productCard(PRODUCTS.find((p) => p.id === id))).join('');
-  return `<div class="carousel">
-      <h2>Recommended for you <span class="badge">NEW</span></h2>
-      <div class="track">${cards}</div>
-    </div>`;
 }
 
 function renderProducts() {
@@ -256,24 +259,15 @@ function addToCart(productId, source) {
 // The page tells the server two things:
 //   - every carousel error (POST /api/watchdog/error)
 //   - the carousel's current state: is the flag on, and did it render cleanly?
-//     (POST /api/watchdog/status). This is how the watchdog confirms the
-//     trigger really turned the flag off, and later sees the recovery.
+//     (POST /api/watchdog/status). This is how the watchdog confirms a
+//     trigger really changed the flag, and sees the recovery.
+// It also polls GET /api/watchdog to show the watchdog's state in the panel.
 // =============================================================================
-function startErrorLoop(err) {
-  if (errorLoop) return;
-  const report = async () => {
-    const res = await postJson('/api/watchdog/error', { message: err.message });
-    showWatchdog(res.state);
-    if (res.message) log(`watchdog: ${res.message}`);
-    else if (res.count) log(`error reported to watchdog (${res.count})`);
-  };
-  report();
-  errorLoop = setInterval(report, 3000); // stands in for errors from many shoppers
-}
-
-function stopErrorLoop() {
-  clearInterval(errorLoop);
-  errorLoop = null;
+async function reportError(err) {
+  const res = await postJson('/api/watchdog/error', { message: err.message });
+  if (res.message) log(`watchdog: ${res.message}`);
+  else if (res.count) log(`error reported to watchdog (${res.count})`);
+  refreshWatchdog();
 }
 
 async function reportCarouselStatus(flagOn, healthy) {
@@ -281,18 +275,29 @@ async function reportCarouselStatus(flagOn, healthy) {
   if (status === lastCarouselStatus) return; // only report changes
   lastCarouselStatus = status;
   const res = await postJson('/api/watchdog/status', { flagOn, healthy });
-  showWatchdog(res.state);
   if (res.message) log(`watchdog: ${res.message}`);
+  refreshWatchdog();
 }
 
-function showWatchdog(state) {
-  if (!state) return;
+// Reads the watchdog's state and shows it in the demo panel. The health checks
+// run on the server, so polling is how the page sees their progress.
+async function refreshWatchdog() {
+  const wd = await fetch('/api/watchdog').then((r) => r.json()).catch(() => null);
+  if (!wd) return;
   const labels = {
     armed: '<span class="on">armed</span>',
-    tripped: '<span class="off">tripped: trigger sent</span>',
-    remediated: '<span class="warn">remediated: flag off</span>',
+    tripped: '<span class="off">tripped: OFF trigger sent</span>',
+    remediated: wd.waitingForHuman
+      ? '<span class="warn">remediated: healthy, waiting for a person</span>'
+      : `<span class="warn">remediated: health checks ${wd.healthyChecks}/${wd.healthyChecksNeeded}</span>`,
+    recovering: '<span class="warn">recovering: ON trigger sent</span>',
   };
-  $('watchdog-status').innerHTML = labels[state] ?? state;
+  $('watchdog-status').innerHTML = labels[wd.state] ?? wd.state;
+
+  if (lastWatchdogState === 'remediated' && wd.state === 'recovering') {
+    log(`watchdog: ${wd.healthyChecksNeeded} health checks passed; ON trigger fired`);
+  }
+  lastWatchdogState = wd.state;
 }
 
 async function postJson(url, body) {

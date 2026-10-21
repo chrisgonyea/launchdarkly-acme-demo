@@ -25,4 +25,9 @@ curl -sf -X POST -H 'Content-Type: application/json' -d '{}' \
 curl -sf -X POST -H 'Content-Type: application/json' -d '{"flagOn":true,"healthy":true}' \
   "http://localhost:$PORT/api/watchdog/status" | grep -q '"state":"armed"'
 
+curl -sf "http://localhost:$PORT/api/recommendations" | grep -q '"items"'
+curl -sf -X POST -H 'Content-Type: application/json' -d '{"broken":true}' \
+  "http://localhost:$PORT/api/simulate-bug" | grep -q '"broken":true'
+test "$(curl -s -o /dev/null -w '%{http_code}' "http://localhost:$PORT/api/recommendations")" = "503"
+
 echo "Smoke test passed."
