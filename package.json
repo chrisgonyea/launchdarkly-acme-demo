@@ -1,5 +1,5 @@
 {
-  "name": "abc-shop-launchdarkly-demo",
+  "name": "launchdarkly-acme-demo",
   "version": "1.0.0",
   "description": "ABC Shop: a sample e-commerce storefront showing LaunchDarkly release, remediation, targeting and experimentation.",
   "type": "module",
@@ -8,7 +8,8 @@
     "build:sdk": "esbuild public/sdk-entry.js --bundle --format=esm --outfile=public/vendor/launchdarkly.js --log-level=warning",
     "prestart": "npm run build:sdk",
     "start": "node server.js",
-    "simulate": "node scripts/simulate-traffic.js"
+    "simulate": "node scripts/simulate-traffic.js",
+    "test": "./scripts/smoke-test.sh"
   },
   "engines": {
     "node": ">=20"
