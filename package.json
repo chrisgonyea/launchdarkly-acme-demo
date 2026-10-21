@@ -1,7 +1,7 @@
 {
   "name": "launchdarkly-acme-demo",
   "version": "1.0.0",
-  "description": "ABC Shop: a sample e-commerce storefront showing LaunchDarkly release, remediation, targeting and experimentation.",
+  "description": "ACME Shop: a sample e-commerce storefront showing LaunchDarkly release, remediation, targeting and experimentation.",
   "type": "module",
   "private": true,
   "scripts": {

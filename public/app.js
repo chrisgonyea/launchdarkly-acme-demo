@@ -1,5 +1,5 @@
 // =============================================================================
-// ABC Shop - storefront logic
+// ACME Shop - storefront logic
 // -----------------------------------------------------------------------------
 // Everything LaunchDarkly-related in the browser lives in this file. Look for
 // the "LD:" comments; those are the lines that talk to LaunchDarkly.

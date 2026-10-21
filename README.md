@@ -1,4 +1,4 @@
-# ABC Shop: a LaunchDarkly feature flag demo
+# ACME Shop: a LaunchDarkly feature flag demo
 
 A small e-commerce storefront that shows how LaunchDarkly lets a team release features safely, roll them back instantly, and target them to specific shoppers.
 

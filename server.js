@@ -1,5 +1,5 @@
 // =============================================================================
-// ABC Shop - demo web server
+// ACME Shop - demo web server
 // -----------------------------------------------------------------------------
 // This small Express server does three things:
 //   1. Serves the storefront (everything in the /public folder).
@@ -98,7 +98,7 @@ app.post('/api/report-error', async (req, res) => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        eventName: 'ABC Shop watchdog: recommendations carousel error rate exceeded',
+        eventName: 'ACME Shop watchdog: recommendations carousel error rate exceeded',
       }),
     });
     console.log(`[watchdog] trigger fired, LaunchDarkly answered HTTP ${response.status}`);
@@ -110,6 +110,6 @@ app.post('/api/report-error', async (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`\nABC Shop is running at http://localhost:${PORT}`);
+  console.log(`\nACME Shop is running at http://localhost:${PORT}`);
   console.log(`Watchdog auto-remediation: ${TRIGGER_URL ? 'ON' : 'OFF (no trigger URL in .env)'}\n`);
 });

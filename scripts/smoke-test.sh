@@ -17,7 +17,7 @@ for _ in $(seq 1 20); do
 done
 
 curl -sf "http://localhost:$PORT/api/config" | grep -q '"clientSideId":"smoke-test"'
-curl -sf "http://localhost:$PORT/" | grep -q '<title>ABC Shop</title>'
+curl -sf "http://localhost:$PORT/" | grep -q '<title>ACME Shop</title>'
 curl -sf "http://localhost:$PORT/vendor/launchdarkly.js" > /dev/null
 curl -sf -X POST -H 'Content-Type: application/json' -d '{}' \
   "http://localhost:$PORT/api/report-error" | grep -q '"count":1'
