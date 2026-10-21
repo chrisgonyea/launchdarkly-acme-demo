@@ -19,7 +19,10 @@ done
 curl -sf "http://localhost:$PORT/api/config" | grep -q '"clientSideId":"smoke-test"'
 curl -sf "http://localhost:$PORT/" | grep -q '<title>ACME Shop</title>'
 curl -sf "http://localhost:$PORT/vendor/launchdarkly.js" > /dev/null
+curl -sf "http://localhost:$PORT/api/watchdog" | grep -q '"state":"armed"'
 curl -sf -X POST -H 'Content-Type: application/json' -d '{}' \
-  "http://localhost:$PORT/api/report-error" | grep -q '"count":1'
+  "http://localhost:$PORT/api/watchdog/error" | grep -q '"count":1'
+curl -sf -X POST -H 'Content-Type: application/json' -d '{"flagOn":true,"healthy":true}' \
+  "http://localhost:$PORT/api/watchdog/status" | grep -q '"state":"armed"'
 
 echo "Smoke test passed."

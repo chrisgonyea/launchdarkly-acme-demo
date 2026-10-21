@@ -79,12 +79,19 @@ const personaSelect = $('persona-select');
 const bugToggle = $('bug-toggle');
 let cartCount = 0;
 let errorLoop = null; // repeats error reports while the "bug" is live
+let quiet = true; // true while the page itself is loading flag values (start, shopper switch)
+let lastCarouselStatus = null; // last carousel status sent to the watchdog
 
 // =============================================================================
 // 1. Start the LaunchDarkly client
 // =============================================================================
 const { clientSideId, watchdogEnabled } = await fetch('/api/config').then((r) => r.json());
-$('watchdog-status').textContent = watchdogEnabled ? 'armed' : 'off (no trigger URL)';
+if (watchdogEnabled) {
+  const { state } = await fetch('/api/watchdog').then((r) => r.json());
+  showWatchdog(state);
+} else {
+  $('watchdog-status').textContent = 'off (no trigger URL)';
+}
 
 // LD: create the client with the Client-side ID and the starting context.
 const ldClient = createClient(clientSideId, PERSONAS.anonymous.context);
@@ -96,13 +103,15 @@ const ldClient = createClient(clientSideId, PERSONAS.anonymous.context);
 // LaunchDarkly. When someone flips the flag in the dashboard (or a trigger
 // flips it), LaunchDarkly pushes the new value here within about a second and
 // we redraw just that part of the page. No reload.
+// (While the page is loading values itself, we redraw but don't log a
+// "change", because nobody changed anything in LaunchDarkly.)
 // =============================================================================
 ldClient.on(`change:${CAROUSEL_FLAG}`, () => {
-  log(`${CAROUSEL_FLAG} changed → ${onOff(ldClient.variation(CAROUSEL_FLAG, false))}`);
+  if (!quiet) log(`${CAROUSEL_FLAG} changed → ${onOff(ldClient.variation(CAROUSEL_FLAG, false))}`);
   renderCarousel();
 });
 ldClient.on(`change:${BANNER_FLAG}`, () => {
-  log(`${BANNER_FLAG} changed → ${onOff(ldClient.variation(BANNER_FLAG, false))}`);
+  if (!quiet) log(`${BANNER_FLAG} changed → ${onOff(ldClient.variation(BANNER_FLAG, false))}`);
   renderBanner();
 });
 
@@ -110,6 +119,7 @@ ldClient.on(`change:${BANNER_FLAG}`, () => {
 const result = await ldClient.start({ timeout: 5 });
 $('sdk-status').textContent = result.status === 'complete' ? 'connected' : `not ready (${result.status})`;
 log(`SDK started as "${PERSONAS.anonymous.label}"`);
+quiet = false;
 
 // =============================================================================
 // 3. Switching shoppers (Part 2: targeting)
@@ -121,7 +131,9 @@ for (const [id, p] of Object.entries(PERSONAS)) {
 }
 personaSelect.addEventListener('change', async () => {
   const persona = PERSONAS[personaSelect.value];
+  quiet = true;
   await ldClient.identify(persona.context);
+  quiet = false;
   log(`identify → "${persona.label}"`);
   renderAll();
 });
@@ -177,6 +189,7 @@ function renderCarousel() {
     // Flag OFF: the old experience, with no carousel at all.
     el.innerHTML = '';
     stopErrorLoop();
+    reportCarouselStatus(false, true);
     return;
   }
 
@@ -186,11 +199,13 @@ function renderCarousel() {
       b.onclick = () => addToCart(b.dataset.product, 'carousel');
     });
     stopErrorLoop();
+    reportCarouselStatus(true, true);
   } catch (err) {
     // The "bug" fired. Show a broken state and start reporting errors to the
     // server, which is what a real error tracker would do.
     el.innerHTML = `<div class="carousel broken">⚠️ Recommendations failed to load: ${err.message}</div>`;
     startErrorLoop(err);
+    reportCarouselStatus(true, false);
   }
 }
 
@@ -237,19 +252,20 @@ function addToCart(productId, source) {
 }
 
 // =============================================================================
-// Error reporting for the watchdog (Part 1: remediation)
+// Talking to the watchdog (Part 1: automated remediation)
+// The page tells the server two things:
+//   - every carousel error (POST /api/watchdog/error)
+//   - the carousel's current state: is the flag on, and did it render cleanly?
+//     (POST /api/watchdog/status). This is how the watchdog confirms the
+//     trigger really turned the flag off, and later sees the recovery.
 // =============================================================================
 function startErrorLoop(err) {
   if (errorLoop) return;
   const report = async () => {
-    const res = await fetch('/api/report-error', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message: err.message }),
-    }).then((r) => r.json()).catch(() => ({}));
-    log(res.fired
-      ? '🚨 watchdog fired the OFF trigger'
-      : `error reported to watchdog (${res.count ?? '?'})`);
+    const res = await postJson('/api/watchdog/error', { message: err.message });
+    showWatchdog(res.state);
+    if (res.message) log(`watchdog: ${res.message}`);
+    else if (res.count) log(`error reported to watchdog (${res.count})`);
   };
   report();
   errorLoop = setInterval(report, 3000); // stands in for errors from many shoppers
@@ -258,6 +274,33 @@ function startErrorLoop(err) {
 function stopErrorLoop() {
   clearInterval(errorLoop);
   errorLoop = null;
+}
+
+async function reportCarouselStatus(flagOn, healthy) {
+  const status = `${flagOn}/${healthy}`;
+  if (status === lastCarouselStatus) return; // only report changes
+  lastCarouselStatus = status;
+  const res = await postJson('/api/watchdog/status', { flagOn, healthy });
+  showWatchdog(res.state);
+  if (res.message) log(`watchdog: ${res.message}`);
+}
+
+function showWatchdog(state) {
+  if (!state) return;
+  const labels = {
+    armed: '<span class="on">armed</span>',
+    tripped: '<span class="off">tripped: trigger sent</span>',
+    remediated: '<span class="warn">remediated: flag off</span>',
+  };
+  $('watchdog-status').innerHTML = labels[state] ?? state;
+}
+
+async function postJson(url, body) {
+  return fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  }).then((r) => r.json()).catch(() => ({}));
 }
 
 // --- helpers -----------------------------------------------------------------

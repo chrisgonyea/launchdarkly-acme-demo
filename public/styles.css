@@ -73,7 +73,7 @@ main { padding: 24px 32px 64px; max-width: 1100px; }
 .flag-status { display: grid; grid-template-columns: 1fr auto; gap: 6px 10px; margin: 0 0 16px; }
 .flag-status dt { font-family: ui-monospace, monospace; color: #c9c5dd; }
 .flag-status dd { margin: 0; font-weight: 700; }
-.on { color: #5fd39a; } .off { color: #ff8a80; }
+.on { color: #5fd39a; } .off { color: #ff8a80; } .warn { color: #ffd479; }
 .bug-toggle { display: flex; gap: 8px; align-items: center; padding: 10px; background: #221f30; border-radius: 8px; cursor: pointer; }
 .event-log { list-style: none; padding: 0; margin: 16px 0 0; font-family: ui-monospace, monospace; font-size: 12px; }
 .event-log li { padding: 6px 0; border-bottom: 1px solid #2a2739; color: #c9c5dd; }

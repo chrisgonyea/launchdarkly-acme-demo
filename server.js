@@ -4,10 +4,12 @@
 // This small Express server does three things:
 //   1. Serves the storefront (everything in the /public folder).
 //   2. Hands the browser its LaunchDarkly Client-side ID (GET /api/config).
-//   3. Runs an automatic "watchdog" (POST /api/report-error). If the new
+//   3. Runs an automatic "watchdog" (/api/watchdog/...). If the new
 //      recommendations carousel keeps crashing, the watchdog calls a
 //      LaunchDarkly flag trigger URL, and that trigger turns the flag OFF.
-//      This is "automated remediation": no human has to wake up and flip it.
+//      It then confirms the flag really went off, and notices when the
+//      feature comes back healthy. This is "automated remediation": no human
+//      has to wake up and flip it.
 //
 // All LaunchDarkly feature-flag evaluation happens in the BROWSER, using the
 // LaunchDarkly JavaScript client-side SDK (see public/app.js).
@@ -56,40 +58,70 @@ app.get('/api/config', (req, res) => {
 });
 
 // -----------------------------------------------------------------------------
-// The watchdog
-// The browser POSTs here each time the carousel throws an error. If we see
-// ERROR_THRESHOLD errors inside WINDOW_MS, we fire the trigger once, then wait
-// COOLDOWN_MS before we are allowed to fire again.
+// The watchdog (Part 1: automated remediation)
+//
+// It moves through three states, and the demo panel shows which one it is in:
+//
+//   armed       Watching. The browser reports each carousel error here. If
+//               ERROR_THRESHOLD errors arrive within WINDOW_MS, it fires the
+//               OFF trigger and moves to "tripped".
+//   tripped     Trigger sent. Waiting for proof that it worked: the browser
+//               reports the flag value LaunchDarkly is now serving. When that
+//               says OFF, it moves to "remediated".
+//   remediated  The flag is confirmed off and shoppers see the old page. When
+//               someone turns the flag back on, it re-arms. If the carousel then
+//               renders cleanly, it logs a recovery; if it still errors, the
+//               cycle starts again.
+//
+// It fires at most once per incident, so it can never toggle a flag in a loop.
 // -----------------------------------------------------------------------------
 const ERROR_THRESHOLD = 5;
 const WINDOW_MS = 30_000;
-const COOLDOWN_MS = 60_000;
+const CONFIRM_TIMEOUT_MS = 15_000; // warn if the flag is still on this long after firing
 
-let recentErrors = []; // timestamps of recent errors
-let lastFiredAt = 0;
+const watchdog = {
+  state: 'armed',
+  recentErrors: [], // timestamps of recent errors, only counted while armed
+  firedAt: null, // when the trigger was sent
+  awaitingRecovery: false, // true after a remediation, until the carousel is healthy again
+};
 
-app.post('/api/report-error', async (req, res) => {
+function setState(state, message) {
+  watchdog.state = state;
+  console.log(`[watchdog] ${state.toUpperCase()}: ${message}`);
+  return { state, message };
+}
+
+// Current state, so the page can show it.
+app.get('/api/watchdog', (req, res) => {
+  res.json({ enabled: Boolean(TRIGGER_URL), state: watchdog.state });
+});
+
+// The browser calls this each time the carousel throws an error.
+app.post('/api/watchdog/error', async (req, res) => {
+  if (watchdog.state !== 'armed') {
+    // Already dealing with this incident; don't count or fire again.
+    return res.json({ state: watchdog.state });
+  }
+
   const now = Date.now();
-  recentErrors = recentErrors.filter((t) => now - t < WINDOW_MS);
-  recentErrors.push(now);
-
-  const count = recentErrors.length;
+  watchdog.recentErrors = watchdog.recentErrors.filter((t) => now - t < WINDOW_MS);
+  watchdog.recentErrors.push(now);
+  const count = watchdog.recentErrors.length;
   console.log(`[watchdog] carousel error reported (${count}/${ERROR_THRESHOLD} in the last ${WINDOW_MS / 1000}s)`);
 
-  const overThreshold = count >= ERROR_THRESHOLD;
-  const coolingDown = now - lastFiredAt < COOLDOWN_MS;
-
-  if (!overThreshold || coolingDown) {
-    return res.json({ fired: false, count });
+  if (count < ERROR_THRESHOLD) {
+    return res.json({ state: watchdog.state, count });
   }
 
   if (!TRIGGER_URL) {
     console.log('[watchdog] threshold reached, but no trigger URL is set in .env, so nothing was sent.');
-    return res.json({ fired: false, count, reason: 'no-trigger-url' });
+    return res.json({ state: watchdog.state, count, message: 'Threshold reached, but no trigger URL is set' });
   }
 
-  lastFiredAt = now;
-  recentErrors = [];
+  watchdog.recentErrors = [];
+  watchdog.firedAt = now;
+  const result = setState('tripped', `${count} errors in ${WINDOW_MS / 1000}s; firing the OFF trigger`);
 
   try {
     // A generic LaunchDarkly trigger is just an HTTP POST to a secret URL.
@@ -101,12 +133,47 @@ app.post('/api/report-error', async (req, res) => {
         eventName: 'ACME Shop watchdog: recommendations carousel error rate exceeded',
       }),
     });
-    console.log(`[watchdog] trigger fired, LaunchDarkly answered HTTP ${response.status}`);
-    return res.json({ fired: true, status: response.status });
+    if (!response.ok) {
+      return res.json(setState('armed', `trigger call failed (HTTP ${response.status}); re-armed`));
+    }
+    console.log(`[watchdog] LaunchDarkly accepted the trigger (HTTP ${response.status}); waiting for the flag to turn off`);
+    return res.json(result);
   } catch (err) {
-    console.error('[watchdog] could not reach the trigger URL:', err.message);
-    return res.status(502).json({ fired: false, error: err.message });
+    return res.json(setState('armed', `could not reach the trigger URL (${err.message}); re-armed`));
   }
+});
+
+// The browser calls this whenever the carousel flag's value or health changes.
+// flagOn  = the value LaunchDarkly is serving right now
+// healthy = the carousel rendered without an error (only meaningful when on)
+app.post('/api/watchdog/status', (req, res) => {
+  const { flagOn, healthy } = req.body;
+
+  if (watchdog.state === 'tripped' && !flagOn) {
+    const seconds = ((Date.now() - watchdog.firedAt) / 1000).toFixed(1);
+    watchdog.awaitingRecovery = true;
+    return res.json(setState('remediated', `flag confirmed OFF ${seconds}s after the trigger fired`));
+  }
+
+  if (watchdog.state === 'tripped' && flagOn && Date.now() - watchdog.firedAt > CONFIRM_TIMEOUT_MS) {
+    return res.json(setState('tripped', `trigger fired ${CONFIRM_TIMEOUT_MS / 1000}s ago but the flag is still ON; check LaunchDarkly`));
+  }
+
+  if (watchdog.state === 'remediated' && flagOn) {
+    watchdog.recentErrors = [];
+    if (healthy) {
+      watchdog.awaitingRecovery = false;
+      return res.json(setState('armed', 'RECOVERED: carousel is back on and healthy'));
+    }
+    return res.json(setState('armed', 'flag turned back on; watching again'));
+  }
+
+  if (watchdog.state === 'armed' && watchdog.awaitingRecovery && flagOn && healthy) {
+    watchdog.awaitingRecovery = false;
+    return res.json(setState('armed', 'RECOVERED: carousel is back on and healthy'));
+  }
+
+  return res.json({ state: watchdog.state });
 });
 
 app.listen(PORT, () => {
