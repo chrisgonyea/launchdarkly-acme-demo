@@ -1,8 +1,10 @@
 // =============================================================================
 // ACME Shop - storefront logic
 // -----------------------------------------------------------------------------
-// Everything LaunchDarkly-related in the browser lives in this file. Look for
-// the "LD:" comments; those are the lines that talk to LaunchDarkly.
+// Everything LaunchDarkly-related in the browser lives in this file. Every line
+// that talks to LaunchDarkly has an "LD:" comment, so searching for "LD:"
+// gives a guided tour of the SDK: import, createClient, on, start, variation,
+// identify and track.
 //
 // Flags this page uses (create both in your LaunchDarkly project, and tick
 // "SDKs using Client-side ID" under Client-side SDK availability on each one):
@@ -11,6 +13,7 @@
 //   homepage-promo-banner     (Boolean)  Part 2: targeting, plus the experiment
 // =============================================================================
 
+// LD: the LaunchDarkly JavaScript client-side SDK (served by server.js).
 import { createClient } from './vendor/launchdarkly.js';
 
 const CAROUSEL_FLAG = 'recommendations-carousel';
@@ -71,6 +74,7 @@ const PRODUCTS = [
   { id: 'p5', name: 'Noise-Cancel Headphones', price: 199, emoji: '🎧', color: '#e9e5f7' },
   { id: 'p6', name: 'Desk Plant', price: 24, emoji: '🪴', color: '#e3f2df' },
 ];
+
 // --- page elements -----------------------------------------------------------
 const $ = (id) => document.getElementById(id);
 const personaSelect = $('persona-select');
@@ -107,16 +111,20 @@ const ldClient = createClient(clientSideId, PERSONAS.anonymous.context);
 // (While the page is loading values itself, we redraw but don't log a
 // "change", because nobody changed anything in LaunchDarkly.)
 // =============================================================================
+// LD: listen for changes to the carousel flag.
 ldClient.on(`change:${CAROUSEL_FLAG}`, () => {
   if (!quiet) log(`${CAROUSEL_FLAG} changed → ${onOff(ldClient.variation(CAROUSEL_FLAG, false))}`);
   renderCarousel();
 });
+// LD: listen for changes to the banner flag.
 ldClient.on(`change:${BANNER_FLAG}`, () => {
   if (!quiet) log(`${BANNER_FLAG} changed → ${onOff(ldClient.variation(BANNER_FLAG, false))}`);
   renderBanner();
 });
 
 // LD: start() connects to LaunchDarkly and downloads this context's flag values.
+// If LaunchDarkly can't be reached within 5 seconds, the page still works:
+// every variation() call returns its fallback value (false = the old page).
 const result = await ldClient.start({ timeout: 5 });
 $('sdk-status').textContent = result.status === 'complete' ? 'connected' : `not ready (${result.status})`;
 log(`SDK started as "${PERSONAS.anonymous.label}"`);
@@ -133,7 +141,7 @@ for (const [id, p] of Object.entries(PERSONAS)) {
 personaSelect.addEventListener('change', async () => {
   const persona = PERSONAS[personaSelect.value];
   quiet = true;
-  await ldClient.identify(persona.context);
+  await ldClient.identify(persona.context); // LD: switch to this shopper's context
   quiet = false;
   log(`identify → "${persona.label}"`);
   renderAll();
@@ -189,7 +197,7 @@ function renderBanner() {
 async function renderCarousel() {
   const run = ++carouselRun;
   clearTimeout(retryTimer);
-  const showCarousel = ldClient.variation(CAROUSEL_FLAG, false);
+  const showCarousel = ldClient.variation(CAROUSEL_FLAG, false); // LD: on or off for this shopper?
   $('flag-carousel').innerHTML = statusHtml(showCarousel);
   const el = $('recommendations');
 
@@ -250,7 +258,7 @@ function addToCart(productId, source) {
   cartCount += 1;
   $('cart-count').textContent = cartCount;
   const product = PRODUCTS.find((p) => p.id === productId);
-  ldClient.track('add-to-cart', { productId, source }, product.price);
+  ldClient.track('add-to-cart', { productId, source }, product.price); // LD: send the custom event
   log(`track("add-to-cart") ${product.name} from ${source}`);
 }
 
