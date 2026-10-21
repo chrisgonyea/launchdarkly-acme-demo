@@ -5,7 +5,6 @@
 set -euo pipefail
 
 PORT="${PORT:-3999}"
-npm run build:sdk
 for f in server.js public/app.js; do node --check "$f"; done
 
 LD_CLIENT_SIDE_ID=smoke-test PORT="$PORT" node server.js > /tmp/abc-shop-smoke.log 2>&1 &

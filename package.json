@@ -5,11 +5,9 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "build:sdk": "esbuild public/sdk-entry.js --bundle --format=esm --outfile=public/vendor/launchdarkly.js --log-level=warning",
-    "prestart": "npm run build:sdk",
     "start": "node server.js",
-    "simulate": "node scripts/simulate-traffic.js",
-    "test": "./scripts/smoke-test.sh"
+    "test": "./scripts/smoke-test.sh",
+    "simulate": "node scripts/simulate-traffic.js"
   },
   "engines": {
     "node": ">=20"
@@ -19,8 +17,5 @@
     "@launchdarkly/node-server-sdk": "9.15.0",
     "dotenv": "^16.4.5",
     "express": "^5.1.0"
-  },
-  "devDependencies": {
-    "esbuild": "^0.25.0"
   }
 }

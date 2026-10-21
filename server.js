@@ -20,6 +20,12 @@ const app = express();
 app.use(express.json());
 app.use(express.static('public'));
 
+// The LaunchDarkly browser SDK ships as one ready-to-use file, so we serve it
+// straight from node_modules. No bundler or CDN needed.
+app.get('/vendor/launchdarkly.js', (req, res) => {
+  res.sendFile('node_modules/@launchdarkly/js-client-sdk/dist/index.js', { root: '.' });
+});
+
 const PORT = process.env.PORT || 3000;
 
 // -----------------------------------------------------------------------------
