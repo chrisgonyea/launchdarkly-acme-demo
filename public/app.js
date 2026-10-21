@@ -286,11 +286,11 @@ async function refreshWatchdog() {
   if (!wd) return;
   const labels = {
     armed: '<span class="on">armed</span>',
-    tripped: '<span class="off">tripped: OFF trigger sent</span>',
+    tripped: `<span class="off">tripped: waiting for LaunchDarkly (${wd.waitingSeconds}s)</span>`,
     remediated: wd.waitingForHuman
       ? '<span class="warn">remediated: healthy, waiting for a person</span>'
       : `<span class="warn">remediated: health checks ${wd.healthyChecks}/${wd.healthyChecksNeeded}</span>`,
-    recovering: '<span class="warn">recovering: ON trigger sent</span>',
+    recovering: `<span class="warn">recovering: waiting for LaunchDarkly (${wd.waitingSeconds}s)</span>`,
   };
   $('watchdog-status').innerHTML = labels[wd.state] ?? wd.state;
 
