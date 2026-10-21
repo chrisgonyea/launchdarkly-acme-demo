@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ABC Shop</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">ABC<span>Shop</span></div>
+
+    <!-- Demo control: pretend to be a different shopper (Part 2: Targeting) -->
+    <label class="persona">
+      Viewing as
+      <select id="persona-select"></select>
+    </label>
+
+    <div class="cart" aria-live="polite">Cart <strong id="cart-count">0</strong></div>
+  </header>
+
+  <main>
+    <!-- Part 2: the homepage banner. Old or new version, picked by the
+         "homepage-promo-banner" flag and the shopper's context. -->
+    <section id="banner" class="banner"></section>
+
+    <!-- Part 1: the new "Recommended for you" carousel, behind the
+         "recommendations-carousel" flag. Empty when the flag is off. -->
+    <section id="recommendations"></section>
+
+    <h2 class="section-title">Shop the collection</h2>
+    <section id="product-grid" class="grid"></section>
+
+  </main>
+
+  <!-- Demo panel: shows what the SDK is doing so a viewer can follow along. -->
+  <aside class="demo-panel">
+    <h3>Demo panel</h3>
+    <dl class="flag-status">
+      <dt>SDK</dt><dd id="sdk-status">connecting…</dd>
+      <dt>recommendations-carousel</dt><dd id="flag-carousel">–</dd>
+      <dt>homepage-promo-banner</dt><dd id="flag-banner">–</dd>
+      <dt>Watchdog</dt><dd id="watchdog-status">–</dd>
+    </dl>
+    <label class="bug-toggle">
+      <input type="checkbox" id="bug-toggle">
+      Simulate a bug in the new carousel
+    </label>
+    <ol id="event-log" class="event-log"></ol>
+  </aside>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
