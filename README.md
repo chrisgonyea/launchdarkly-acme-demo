@@ -12,7 +12,7 @@ It is a sample app for the LaunchDarkly Solutions Engineer exercise, written as 
 | | Flag change listener | The carousel appears or disappears within about a second of a flag change, with no page reload. |
 | | Flag triggers | A `curl` call to a trigger URL turns the carousel off. A built-in watchdog does the same automatically when the carousel keeps failing, and can turn it back on once the problem is fixed. |
 | **Part 2: Target** | Feature flag `homepage-promo-banner`, contexts, individual and rule-based targeting | A "Viewing as" menu switches between demo shoppers with different attributes. Targeting decides who sees the new free-shipping banner. |
-| **Extra credit: Experimentation** | Custom events (`track`) | Every "Add to cart" click is sent as the `add-to-cart` event, ready for a metric. |
+| **Extra credit: Experimentation** | Custom events (`track`), a metric, an experiment | Every "Add to cart" click is sent as the `add-to-cart` event. An experiment on the banner flag measures whether the new banner raises the add-to-cart rate, using synthetic traffic from `npm run simulate`. |
 
 A step-by-step demo script is in [docs/DEMO.md](docs/DEMO.md). What's done and what's left for each part of the exercise is in [docs/STATUS.md](docs/STATUS.md).
 
@@ -43,6 +43,7 @@ A step-by-step demo script is in [docs/DEMO.md](docs/DEMO.md). What's done and w
 | [public/index.html](public/index.html), [public/styles.css](public/styles.css) | The storefront and the demo panel. |
 | [server.js](server.js) | Serves the page, the Client-side ID, and the recommendations service. |
 | [watchdog.js](watchdog.js) | Automated remediation with LaunchDarkly triggers. |
+| [scripts/simulate-traffic.js](scripts/simulate-traffic.js) | `npm run simulate`: synthetic shoppers for the experiment, using the Node server SDK. |
 | [scripts/smoke-test.sh](scripts/smoke-test.sh) | `npm test`: starts the server and checks it responds. Runs in CI. |
 
 ## What you need
@@ -128,6 +129,52 @@ Turn the flag **On** and save.
 
 The demo shoppers and their attributes are defined at the top of [public/app.js](public/app.js), in `PERSONAS`. Picking each one once in the "Viewing as" menu lets LaunchDarkly suggest the attribute names when you build the rule.
 
+#### e. Set up the experiment (optional: extra credit)
+
+The experiment asks one question: **does the new banner make shoppers more likely to add to cart?** It needs your account to include Experimentation.
+
+1. **Send the event once.** With the app running (step 3), click **Add to cart** a couple of times so LaunchDarkly has seen the `add-to-cart` event.
+2. **Create the metric:** **Data > Metrics > Create metric**.
+
+   | Setting | Value |
+   |---|---|
+   | Source | LaunchDarkly hosted |
+   | Event kind | Custom |
+   | Event key | `add-to-cart` |
+   | Metric definition | Occurrence (Percent) |
+   | Analysis unit | user |
+   | Success criteria | Higher is better |
+   | Name | `Add to cart rate` |
+
+3. **Create the experiment:** **Create > Experiment**. Name `Homepage promo banner: add-to-cart`, with a hypothesis. On the **Design** tab:
+
+   | Setting | Value |
+   |---|---|
+   | Assignment method | LaunchDarkly flag or config |
+   | Flag | `homepage-promo-banner` |
+   | Targeting rule | Default rule. Alice's individual target and the gold + US rule stay outside the experiment. |
+   | Randomize by | user |
+   | Variation served outside the experiment | `false` |
+   | Audience | 100% of the default rule |
+   | Variations split | 50% / 50%, control: `false` |
+   | Metric | `Add to cart rate` |
+   | Statistical approach | Bayesian |
+
+   Click **Save**, make sure the flag is **On**, then click **Start**.
+
+4. **Add your SDK key** to `.env`. It's under **Project settings > Environments > Test > SDK key**, and it is a secret:
+   ```
+   LD_SDK_KEY=your-sdk-key
+   ```
+5. **Send synthetic traffic** (after the experiment has started):
+   ```bash
+   npm run simulate                     # 2,000 shoppers
+   npm run simulate -- --shoppers 5000  # or any number
+   ```
+   Results appear on the experiment within a few minutes.
+
+**About the data:** the simulator's shoppers are synthetic, marked `synthetic: true`, and convert at a built-in 10% (old banner) vs. 13% (new banner). The experiment shows the workflow and that LaunchDarkly detects a real difference; it says nothing about real shoppers. In production, real traffic would run for a week or more.
+
 ### 3. Run it
 
 ```bash
@@ -146,7 +193,8 @@ The terminal shows what the server and watchdog are doing. Leave it visible duri
   curl -X POST 'YOUR-OFF-TRIGGER-URL'
   ```
 - **Automated remediation:** with the flag On, tick **Simulate a bug**. The watchdog fires the OFF trigger after 5 errors, then confirms the flag went off. Untick it, and after 3 passing health checks it fires the ON trigger.
-- **Targeting:** switch shoppers in **Viewing as**. Alice and Bob see the new banner. Carla, Dana and the anonymous visitor see the old one.
+- **Targeting:** switch shoppers in **Viewing as**. Alice and Bob see the new banner. Carla, Dana and the anonymous visitor see the old one, unless the experiment is running: then the default rule splits them 50/50.
+- **Experiment:** with the experiment started, run `npm run simulate` and open the experiment's results in LaunchDarkly.
 
 The full talk track, including testing in production before release, is in [docs/DEMO.md](docs/DEMO.md).
 
