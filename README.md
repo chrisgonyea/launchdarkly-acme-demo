@@ -14,7 +14,7 @@ It is a sample app for the LaunchDarkly Solutions Engineer exercise, written as 
 | **Part 2: Target** | Feature flag `homepage-promo-banner`, contexts, individual and rule-based targeting | A "Viewing as" menu switches between demo shoppers with different attributes. Targeting decides who sees the new free-shipping banner. |
 | **Extra credit: Experimentation** | Custom events (`track`) | Every "Add to cart" click is sent as the `add-to-cart` event, ready for a metric. |
 
-A step-by-step demo script is in [docs/DEMO.md](docs/DEMO.md).
+A step-by-step demo script is in [docs/DEMO.md](docs/DEMO.md). What's done and what's left for each part of the exercise is in [docs/STATUS.md](docs/STATUS.md).
 
 ## How it works
 
