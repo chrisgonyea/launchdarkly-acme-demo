@@ -173,6 +173,8 @@ The experiment asks one question: **does the new banner make shoppers more likel
    ```
    Results appear on the experiment within a few minutes.
 
+**Result (October 26, synthetic traffic):** the new banner converted at 13.4% vs. 10.9% for the old one, a 96% probability of beating control, so LaunchDarkly declared it the winner. Details in [docs/STATUS.md](docs/STATUS.md).
+
 **About the data:** the simulator's shoppers are synthetic, marked `synthetic: true`, and convert at a built-in 10% (old banner) vs. 13% (new banner). The experiment shows the workflow and that LaunchDarkly detects a real difference; it says nothing about real shoppers. In production, real traffic would run for a week or more.
 
 ### 3. Run it

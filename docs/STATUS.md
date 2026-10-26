@@ -1,6 +1,6 @@
 # Project status
 
-**As of October 26, 2026.** Both required parts of the LaunchDarkly SE exercise are built and verified against a real LaunchDarkly environment. None of the three extra-credit sections is done yet.
+**As of October 26, 2026.** Both required parts of the LaunchDarkly SE exercise and the Experimentation extra credit are built and verified against a real LaunchDarkly environment. AI Configs and Integrations are not started.
 
 | Exercise section | Status | Verified against LaunchDarkly |
 |---|---|---|
@@ -8,7 +8,7 @@
 | Submission: public GitHub repo | Done (public since October 26) | n/a |
 | **Part 1: Release and remediate** | **Done** | Yes, October 21–26 |
 | **Part 2: Target** | **Done** | Yes, October 26 |
-| Extra credit: Experimentation | Code done (events and `npm run simulate`); metric and experiment being set up in LaunchDarkly | Not yet |
+| Extra credit: Experimentation | **Done**: the new banner wins on synthetic traffic (96% probability to beat control) | Yes, October 26 |
 | Extra credit: AI Configs | Not started | No |
 | Extra credit: Integrations | Not started | No |
 
@@ -32,20 +32,32 @@
 | Individual targeting | `shopper-alice` is served `true`. | LaunchDarkly targeting |
 | Rule-based targeting | `loyaltyTier` is `gold` AND `country` is `US` → `true` (Bob). Carla (gold, Canada) and Dana (silver, US) don't match. Default rule: `false`. | LaunchDarkly targeting |
 
+## Extra credit: Experimentation
+
+**Result: the new banner raised the add-to-cart rate from 10.9% to 13.4%, with a 96% probability of beating the old banner, so the decision is to ship it.** The traffic was synthetic (see below).
+
+| Setting | Value |
+|---|---|
+| Hypothesis | If we show the new free-shipping banner, more shoppers will add a product to their cart, because free shipping removes a reason to hesitate. |
+| Flag | `homepage-promo-banner`, default rule only (Alice's target and the gold + US rule stay outside the experiment) |
+| Split | 50% `false` (control) / 50% `true`, randomized by `user` |
+| Metric | Add to cart rate: Occurrence (Percent) on the `add-to-cart` event, higher is better |
+| Method | Bayesian, 95% threshold |
+| Traffic | 2,000 synthetic shoppers from `npm run simulate`, plus a few browser visits; built-in rates 10% (old) vs. 13% (new) |
+| Started | October 26, 2026, 11:44 AM ET (iteration 1) |
+
+| Variation | Shoppers | Add-to-carts | Conversion rate (credible interval) | Probability to beat control |
+|---|---|---|---|---|
+| `false` (old banner, control) | 1,026 | 111 | 10.89% (8.98–12.78%) | n/a |
+| `true` (new banner) | 976 | 135 | 13.40% (11.49–15.44%) | **96.36%** |
+
+Relative difference: +23.04% (credible interval −5.08% to +51.16%). Expected loss from choosing the new banner: 0.02%. LaunchDarkly marked `true` the winning variation. Results read from the experiment on October 26, 2026 at about 12:15 PM ET.
+
+**Reading it honestly:** 96% clears the 95% threshold, but the lift's interval still crosses zero, so with real traffic I'd let it run longer before shipping. The simulator found the 3-point difference it was given, which is what this demo needs to show: hypothesis, metric, random split, result, decision.
+
+**Decision:** ship the new banner by serving `true` on the default rule and stopping the experiment. Left running for now so the experiment can be shown live.
+
 ## Extra credit: remaining work
-
-### Experimentation
-
-**Done:**
-- Every "Add to cart" click calls `ldClient.track('add-to-cart', …)`.
-- The trial account includes Experimentation (confirmed October 26).
-- `scripts/simulate-traffic.js` (`npm run simulate`) sends synthetic shoppers through the banner flag with the Node server SDK. They're marked `synthetic: true` and convert at 10% (old banner) vs. 13% (new).
-- README section "Set up the experiment" and demo script step 9.
-
-**Remaining:**
-1. In LaunchDarkly, create the `Add to cart rate` metric (Occurrence (Percent) on `add-to-cart`).
-2. Design the experiment on `homepage-promo-banner`: default rule, 50/50, Bayesian; start it.
-3. Add `LD_SDK_KEY` to `.env`, run `npm run simulate`, and record the result and the decision it supports here.
 
 ### AI Configs
 
@@ -69,7 +81,7 @@
 | Item | Status |
 |---|---|
 | Repository | [chrisgonyea/launchdarkly-acme-demo](https://github.com/chrisgonyea/launchdarkly-acme-demo) |
-| Release | v1.0.0 not yet tagged. `package.json` is `0.1.0` until then. |
+| Release | v1.0.0 (see [CHANGELOG.md](../CHANGELOG.md)) |
 | CI | `npm test` smoke test on every pull request |
 | Dependencies | `npm audit`: 0 vulnerabilities (body-parser updated October 26) |
 
