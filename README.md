@@ -63,7 +63,7 @@ A step-by-step demo script is in [docs/DEMO.md](docs/DEMO.md). What's done and w
 ```bash
 git clone https://github.com/chrisgonyea/launchdarkly-acme-demo.git
 cd launchdarkly-acme-demo
-npm install
+npm ci               # installs the exact versions in package-lock.json
 cp .env.example .env
 ```
 
@@ -172,6 +172,8 @@ The experiment asks one question: **does the new banner make shoppers more likel
    npm run simulate -- --shoppers 5000  # or any number
    ```
    Results appear on the experiment within a few minutes.
+
+**Result (October 26, synthetic traffic):** the new banner converted at 13.4% vs. 10.9% for the old one, a 96% probability of beating control, so LaunchDarkly declared it the winner. Details in [docs/STATUS.md](docs/STATUS.md).
 
 **About the data:** the simulator's shoppers are synthetic, marked `synthetic: true`, and convert at a built-in 10% (old banner) vs. 13% (new banner). The experiment shows the workflow and that LaunchDarkly detects a real difference; it says nothing about real shoppers. In production, real traffic would run for a week or more.
 
