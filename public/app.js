@@ -84,6 +84,8 @@ let retryTimer = null; // while the carousel is failing, it retries every few se
 let carouselRun = 0; // ignores slow responses from an earlier render
 let lastWatchdogState = null;
 let quiet = true; // true while the page itself is loading flag values (start, shopper switch)
+const shownValue = {}; // the value each flag last had on screen, so the log shows only real changes
+let carouselOnForShopper = false; // is the carousel turned on for the current shopper?
 let lastCarouselStatus = null; // last carousel status sent to the watchdog
 
 // =============================================================================
@@ -111,14 +113,17 @@ const ldClient = createClient(clientSideId, PERSONAS.anonymous.context);
 // (While the page is loading values itself, we redraw but don't log a
 // "change", because nobody changed anything in LaunchDarkly.)
 // =============================================================================
+// LaunchDarkly also sends a change event when someone edits a flag in a way
+// that doesn't change THIS shopper's value (say, a rule for other shoppers), so
+// we only log when the value on screen actually changes.
 // LD: listen for changes to the carousel flag.
 ldClient.on(`change:${CAROUSEL_FLAG}`, () => {
-  if (!quiet) log(`${CAROUSEL_FLAG} changed → ${onOff(ldClient.variation(CAROUSEL_FLAG, false))}`);
+  logIfChanged(CAROUSEL_FLAG);
   renderCarousel();
 });
 // LD: listen for changes to the banner flag.
 ldClient.on(`change:${BANNER_FLAG}`, () => {
-  if (!quiet) log(`${BANNER_FLAG} changed → ${onOff(ldClient.variation(BANNER_FLAG, false))}`);
+  logIfChanged(BANNER_FLAG);
   renderBanner();
 });
 
@@ -143,6 +148,10 @@ personaSelect.addEventListener('change', async () => {
   quiet = true;
   await ldClient.identify(persona.context); // LD: switch to this shopper's context
   quiet = false;
+  // A new shopper is not a flag change, so don't let it look like one to the
+  // watchdog: forget what the previous shopper saw.
+  carouselOnForShopper = false;
+  lastCarouselStatus = null;
   log(`identify → "${persona.label}"`);
   renderAll();
 });
@@ -151,6 +160,9 @@ personaSelect.addEventListener('change', async () => {
 bugToggle.addEventListener('change', async () => {
   await postJson('/api/simulate-bug', { broken: bugToggle.checked });
   log(bugToggle.checked ? 'recommendations service BROKEN (simulated)' : 'recommendations service fixed');
+  if (bugToggle.checked && !ldClient.variation(CAROUSEL_FLAG, false)) {
+    log('note: this shopper doesn\'t get the carousel, so nothing fails. Switch to a shopper who does (Alice while testers-only), or release it to everyone.');
+  }
   renderCarousel();
 });
 
@@ -170,6 +182,7 @@ function renderBanner() {
   // LD: variation() returns this context's value for the flag. The second
   // argument (false) is the fallback if LaunchDarkly can't be reached.
   const showNew = ldClient.variation(BANNER_FLAG, false);
+  shownValue[BANNER_FLAG] = showNew;
   $('flag-banner').innerHTML = statusHtml(showNew);
 
   const banner = $('banner');
@@ -198,15 +211,20 @@ async function renderCarousel() {
   const run = ++carouselRun;
   clearTimeout(retryTimer);
   const showCarousel = ldClient.variation(CAROUSEL_FLAG, false); // LD: on or off for this shopper?
+  shownValue[CAROUSEL_FLAG] = showCarousel;
   $('flag-carousel').innerHTML = statusHtml(showCarousel);
   const el = $('recommendations');
 
   if (!showCarousel) {
     // Flag OFF: the old experience, with no carousel at all.
     el.innerHTML = '';
-    reportCarouselStatus(false, true);
+    // Tell the watchdog only if the carousel was on for this shopper and just
+    // went off. A shopper who simply isn't targeted proves nothing about the flag.
+    if (carouselOnForShopper) reportCarouselStatus(false, true);
+    carouselOnForShopper = false;
     return;
   }
+  carouselOnForShopper = true;
 
   try {
     const res = await fetch('/api/recommendations');
@@ -317,6 +335,10 @@ async function postJson(url, body) {
 }
 
 // --- helpers -----------------------------------------------------------------
+function logIfChanged(flagKey) {
+  const value = ldClient.variation(flagKey, false);
+  if (!quiet && value !== shownValue[flagKey]) log(`${flagKey} changed → ${onOff(value)}`);
+}
 function onOff(v) { return v ? 'ON' : 'OFF'; }
 function statusHtml(v) { return `<span class="${v ? 'on' : 'off'}">${onOff(v)}</span>`; }
 function log(message) {
