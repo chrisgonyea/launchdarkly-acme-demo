@@ -10,6 +10,7 @@ A 10 to 12 minute walkthrough for a live audience. Each step says what to **do**
 - [ ] `recommendations-carousel`: **Off**. No rules, default rule serves `true`
 - [ ] `homepage-promo-banner`: **On**, with Alice's individual target, the gold + US rule, default `false`
 - [ ] Terminal tab ready with `curl -X POST '<OFF trigger URL>'`
+- [ ] Slack open on `#acme-shop-releases`, visible next to the store
 - [ ] Reminder: every flag change needs **Review and save**, then **Save changes**
 
 ## The story
@@ -54,10 +55,13 @@ This answers the scenario's ask: *"a safe way to test your code in production be
 - **Do:** in the terminal tab, run the `curl` command.
 - **Sees:** after a short wait (see the note below), the carousel disappears. In LaunchDarkly, the flag's history shows a **trigger** turned it off, not a person.
 - **Say:** "A trigger is a secret URL that does one thing to one flag. Anything that can make a web request can call it: a monitoring alert, an incident tool, an on-call engineer from their phone. Nobody needs to log in to LaunchDarkly at 3 a.m."
+- **Sees (Slack):** "Turned off the flag via **Generic trigger**", with the note from the `curl` call.
+- **Say:** "And the team finds out where they already work. The message says it was a trigger, not a person, and carries the reason."
 - **Do:** turn the flag back **On** before the next step.
 
 ### 6. Automated remediation and recovery (about 3 minutes)
 
+- **Before:** make sure the carousel is on for the shopper you're viewing (released to everyone, or viewing as Alice). A shopper without the carousel has nothing to break; the log says so.
 - **Do:** tick **Simulate a bug**.
 - **Sees:**
   1. The carousel shows an error and retries every 3 seconds. The panel counts errors reported to the watchdog.
@@ -66,6 +70,7 @@ This answers the scenario's ask: *"a safe way to test your code in production be
 - **Say:** "Here nobody calls the trigger. The app's own error reporting crosses a threshold, and a watchdog fires the trigger. Shoppers fall back to the old page instead of seeing an error."
 - **Do:** untick **Simulate a bug**: "the team shipped a fix to the recommendations service."
 - **Sees:** the panel counts **health checks 1/3, 2/3, 3/3**. The ON trigger fires, the carousel returns, and the log says **RECOVERED**.
+- **Sees (Slack):** two messages, "error rate exceeded" when it turned off and "recommendations service healthy again" when it turned back on, both "via Generic trigger".
 - **Say:** "Once the service passes three health checks in a row, the watchdog turns the feature back on. Many teams prefer a person to make that call, so the ON trigger is optional. Without it, the watchdog reports the service is healthy and waits."
 
 > **Trigger timing.** LaunchDarkly applies triggers asynchronously. In testing they took 20 to 65 seconds, while dashboard toggles arrive in about a second. Fill the wait with the talk track, and point at the panel's live counter. If asked: "For an instant kill switch, a person flips the flag, or the app checks a local kill switch. Triggers are the hands-off path."
