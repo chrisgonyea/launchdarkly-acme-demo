@@ -2,10 +2,15 @@
 
 All notable changes to ACME Shop. Versions follow [Semantic Versioning](https://semver.org/).
 
-## Unreleased
+## 1.1.0 (2026-10-26)
 
 ### Extra credit: Integrations
-- LaunchDarkly Slack app: flag changes and trigger firings (labeled "via Generic trigger" with the watchdog's note) post to a channel. Setup in README step f.
+- LaunchDarkly Slack app: flag changes and trigger firings (labeled "via Generic trigger" with the watchdog's note) post to a channel. Setup in README step f; Slack moments added to the demo script.
+
+### Fixed
+- A tab showing a shopper who isn't targeted for the carousel could make the watchdog believe a trigger had turned the flag off. Only a tab that was showing the carousel now reports it going off.
+- The event log no longer reports "changed" when a flag edit didn't change the current shopper's value.
+- Ticking "Simulate a bug" for a shopper without the carousel now explains why nothing fails.
 
 ## 1.0.0 (2026-10-26)
 

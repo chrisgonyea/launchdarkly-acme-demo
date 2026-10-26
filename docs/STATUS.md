@@ -89,7 +89,7 @@ No code changes: the trigger notes come from the `eventName` the watchdog alread
 | Item | Status |
 |---|---|
 | Repository | [chrisgonyea/launchdarkly-acme-demo](https://github.com/chrisgonyea/launchdarkly-acme-demo) |
-| Release | v1.0.0 (see [CHANGELOG.md](../CHANGELOG.md)) |
+| Release | v1.1.0 (see [CHANGELOG.md](../CHANGELOG.md)) |
 | CI | `npm test` smoke test on every pull request |
 | Dependencies | `npm audit`: 0 vulnerabilities (body-parser updated October 26) |
 
