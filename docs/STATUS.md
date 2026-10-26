@@ -5,7 +5,7 @@
 | Exercise section | Status | Verified against LaunchDarkly |
 |---|---|---|
 | Submission: setup instructions, environment assumptions, code comments | Done | n/a |
-| Submission: public GitHub repo | Pending: the owner switches visibility at submission | n/a |
+| Submission: public GitHub repo | Done (public since October 26) | n/a |
 | **Part 1: Release and remediate** | **Done** | Yes, October 21–26 |
 | **Part 2: Target** | **Done** | Yes, October 26 |
 | Extra credit: Experimentation | Partly done: `add-to-cart` events are sent; no metric or experiment yet | No |
