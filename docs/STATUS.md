@@ -1,6 +1,6 @@
 # Project status
 
-**As of October 26, 2026.** Both required parts of the LaunchDarkly SE exercise and the Experimentation extra credit are built and verified against a real LaunchDarkly environment. AI Configs and Integrations are not started.
+**As of October 26, 2026.** Both required parts of the LaunchDarkly SE exercise and the Experimentation and Integrations extra credit are built and verified against a real LaunchDarkly environment. AI Configs is not started.
 
 | Exercise section | Status | Verified against LaunchDarkly |
 |---|---|---|
@@ -10,7 +10,7 @@
 | **Part 2: Target** | **Done** | Yes, October 26 |
 | Extra credit: Experimentation | **Done**: the new banner wins on synthetic traffic (96% probability to beat control) | Yes, October 26 |
 | Extra credit: AI Configs | Not started | No |
-| Extra credit: Integrations | Not started | No |
+| Extra credit: Integrations | **Done**: LaunchDarkly Slack app posts flag changes and trigger firings to a channel | Yes, October 26 |
 
 ## Part 1: Release and remediate
 
@@ -57,6 +57,19 @@ Relative difference: +23.04% (credible interval −5.08% to +51.16%). Expected l
 
 **Decision:** ship the new banner by serving `true` on the default rule and stopping the experiment. Left running for now so the experiment can be shown live.
 
+## Extra credit: Integrations
+
+**Done October 26:** the LaunchDarkly Slack app is subscribed to every flag in the Test environment (`/launchdarkly subscribe -p default -e test`). Verified messages:
+
+| Change | Slack message |
+|---|---|
+| Dashboard toggle | "Chris Gonyea updated the flag Recommendations carousel in Test · Turned the flag off / on" |
+| `curl` OFF and ON triggers | "Turned off the flag via Generic trigger · Manual kill switch: curl from the on-call engineer was triggered" (and the ON equivalent) |
+| Watchdog OFF trigger | "Turned off the flag via Generic trigger · ACME Shop watchdog: recommendations carousel error rate exceeded was triggered" |
+| Watchdog ON trigger | "Turned on the flag via Generic trigger · ACME Shop watchdog: recommendations service healthy again was triggered" |
+
+No code changes: the trigger notes come from the `eventName` the watchdog already sends. Setup is README step f.
+
 ## Extra credit: remaining work
 
 ### AI Configs
@@ -70,11 +83,6 @@ Relative difference: +23.04% (credible interval −5.08% to +51.16%). Expected l
 
 **Estimate:** 2 to 3 hours.
 
-### Integrations
-
-**Remaining:** connect one integration, for example Slack, so flag changes and trigger firings post to a channel. No code changes; document it in the README.
-
-**Estimate:** about 10 minutes.
 
 ## Delivery
 

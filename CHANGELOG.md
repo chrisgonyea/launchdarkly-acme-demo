@@ -2,6 +2,11 @@
 
 All notable changes to ACME Shop. Versions follow [Semantic Versioning](https://semver.org/).
 
+## Unreleased
+
+### Extra credit: Integrations
+- LaunchDarkly Slack app: flag changes and trigger firings (labeled "via Generic trigger" with the watchdog's note) post to a channel. Setup in README step f.
+
 ## 1.0.0 (2026-10-26)
 
 First release: the LaunchDarkly Solutions Engineer exercise.

@@ -12,6 +12,7 @@ It is a sample app for the LaunchDarkly Solutions Engineer exercise, written as 
 | | Flag change listener | The carousel appears or disappears within about a second of a flag change, with no page reload. |
 | | Flag triggers | A `curl` call to a trigger URL turns the carousel off. A built-in watchdog does the same automatically when the carousel keeps failing, and can turn it back on once the problem is fixed. |
 | **Part 2: Target** | Feature flag `homepage-promo-banner`, contexts, individual and rule-based targeting | A "Viewing as" menu switches between demo shoppers with different attributes. Targeting decides who sees the new free-shipping banner. |
+| **Extra credit: Integrations** | LaunchDarkly Slack app | Every flag change posts to a Slack channel, including changes made by triggers, labeled "via Generic trigger" with the watchdog's note. |
 | **Extra credit: Experimentation** | Custom events (`track`), a metric, an experiment | Every "Add to cart" click is sent as the `add-to-cart` event. An experiment on the banner flag measures whether the new banner raises the add-to-cart rate, using synthetic traffic from `npm run simulate`. |
 
 A step-by-step demo script is in [docs/DEMO.md](docs/DEMO.md). What's done and what's left for each part of the exercise is in [docs/STATUS.md](docs/STATUS.md).
@@ -177,6 +178,30 @@ The experiment asks one question: **does the new banner make shoppers more likel
 
 **About the data:** the simulator's shoppers are synthetic, marked `synthetic: true`, and convert at a built-in 10% (old banner) vs. 13% (new banner). The experiment shows the workflow and that LaunchDarkly detects a real difference; it says nothing about real shoppers. In production, real traffic would run for a week or more.
 
+#### f. Connect Slack (optional: extra credit)
+
+The LaunchDarkly Slack app posts flag changes to a channel, so the team sees releases, rollbacks and trigger firings as they happen.
+
+1. Create a channel, for example `#acme-shop-releases`. For a private channel, add the app from the channel's **Integrations** tab.
+2. Add the LaunchDarkly app to your Slack workspace: in LaunchDarkly, **Integrations > Slack App > Add to Slack**, or install **LaunchDarkly** from Slack's app directory.
+3. In the channel, connect your account: `/launchdarkly account`, then **Connect with LaunchDarkly** and **Authorize**.
+4. Subscribe the channel to every flag in the environment (replace `default` and `test` with your project and environment keys):
+   ```
+   /launchdarkly subscribe -p default -e test
+   ```
+   Or run `/launchdarkly subscribe` alone and choose from the form. `/launchdarkly list` shows subscriptions.
+
+What appears in the channel:
+- A dashboard change: "Chris Gonyea updated the flag Recommendations carousel in Test · Turned the flag off".
+- A trigger: "… Turned off the flag via **Generic trigger** · *ACME Shop watchdog: recommendations carousel error rate exceeded* was triggered". The watchdog's `eventName` (see [watchdog.js](watchdog.js)) becomes that note, and a `curl` call can send its own.
+
+The trigger note is set by the JSON body, for example:
+```bash
+curl -X POST -H 'Content-Type: application/json' \
+  -d '{"eventName":"Manual kill switch: curl from the on-call engineer"}' \
+  'YOUR-OFF-TRIGGER-URL'
+```
+
 ### 3. Run it
 
 ```bash
@@ -196,6 +221,7 @@ The terminal shows what the server and watchdog are doing. Leave it visible duri
   ```
 - **Automated remediation:** with the flag On, tick **Simulate a bug**. The watchdog fires the OFF trigger after 5 errors, then confirms the flag went off. Untick it, and after 3 passing health checks it fires the ON trigger.
 - **Targeting:** switch shoppers in **Viewing as**. Alice and Bob see the new banner. Carla, Dana and the anonymous visitor see the old one, unless the experiment is running: then the default rule splits them 50/50.
+- **Slack:** watch the channel while you toggle a flag, run the `curl` trigger, or let the watchdog trip and recover.
 - **Experiment:** with the experiment started, run `npm run simulate` and open the experiment's results in LaunchDarkly.
 
 The full talk track, including testing in production before release, is in [docs/DEMO.md](docs/DEMO.md).
