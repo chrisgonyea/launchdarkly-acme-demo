@@ -89,7 +89,7 @@ export async function simulate(ldClient, { shoppers, log = console.log }) {
 if (import.meta.url === `file://${process.argv[1]}`) {
   const sdkKey = process.env.LD_SDK_KEY;
   if (!sdkKey) {
-    console.error('\nMissing LD_SDK_KEY. Add your server-side SDK key to .env (see README, "Experiment").\n');
+    console.error('\nMissing LD_SDK_KEY. Add your server-side SDK key to .env (see README, "Set up the experiment").\n');
     process.exit(1);
   }
   const argIndex = process.argv.indexOf('--shoppers');
