@@ -99,9 +99,27 @@ The landing page gets about 40,000 visitors a day, so the new banner goes to saf
 
 ---
 
+---
+
+## Extra credit: Experimentation
+
+The product manager's question: did the new banner actually help? Run this part with the experiment already started, or end the demo with it.
+
+### 9. Measure the banner (about 2 minutes)
+
+- **Do:** in LaunchDarkly, open the **Homepage promo banner: add-to-cart** experiment. Show the design: flag `homepage-promo-banner`, default rule only, 50/50 split, metric **Add to cart rate**.
+- **Say:** "Alice and gold US shoppers keep their targeted banner. Everyone else on the default rule is randomly split, so the two groups are comparable, and the add-to-cart event the page already sends becomes the metric."
+- **Do:** in a terminal, run `npm run simulate`.
+- **Sees:** 2,000 synthetic shoppers sent; within a few minutes the experiment's results update with each variation's add-to-cart rate and the probability that the new banner is better.
+- **Say:** "This traffic is synthetic, with a built-in 10% vs. 13% difference, so the point is the workflow: a hypothesis, a metric, a random split, and a result you can act on. With real traffic I'd size the test with the sample size calculator and run it for at least a week."
+- **Decision:** if the new banner wins, ship it by serving `true` on the default rule and end the experiment; the flag then becomes a cleanup task.
+
+> While the experiment runs, Carla, Dana and the anonymous visitor are split 50/50 too, so in step 7 some of them may see the new banner. Explain it as the experiment at work, or stop the experiment before demoing Part 2.
+
 ## Questions to be ready for
 
 - **Why evaluate in the browser and not on the server?** The feature is UI-only, and the client SDK streams changes directly to the page. A server-rendered app would use a server SDK the same way.
 - **Is the Client-side ID a secret?** No. It's meant to be visible in a browser, and the browser only receives values for the current context. The SDK key and trigger URLs are the secrets; they stay in `.env`.
 - **What if LaunchDarkly is down?** A page that's already running keeps the last values it received. A page that can't reach LaunchDarkly when it starts gets each `variation()` call's fallback, which here is `false`: the old, safe page.
 - **Why does the watchdog fire at most once per incident?** So it can never flap a flag on and off in a loop.
+- **Why synthetic traffic?** A demo has one shopper. The simulator uses the server SDK so every synthetic shopper is assigned by LaunchDarkly exactly as a real one would be; only the clicking is simulated.

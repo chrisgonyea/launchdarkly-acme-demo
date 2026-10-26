@@ -8,7 +8,7 @@
 | Submission: public GitHub repo | Done (public since October 26) | n/a |
 | **Part 1: Release and remediate** | **Done** | Yes, October 21–26 |
 | **Part 2: Target** | **Done** | Yes, October 26 |
-| Extra credit: Experimentation | Partly done: `add-to-cart` events are sent; no metric or experiment yet | No |
+| Extra credit: Experimentation | Code done (events and `npm run simulate`); metric and experiment being set up in LaunchDarkly | Not yet |
 | Extra credit: AI Configs | Not started | No |
 | Extra credit: Integrations | Not started | No |
 
@@ -36,16 +36,16 @@
 
 ### Experimentation
 
-**Done:** every "Add to cart" click calls `ldClient.track('add-to-cart', …)`, so the event a metric needs already reaches LaunchDarkly.
+**Done:**
+- Every "Add to cart" click calls `ldClient.track('add-to-cart', …)`.
+- The trial account includes Experimentation (confirmed October 26).
+- `scripts/simulate-traffic.js` (`npm run simulate`) sends synthetic shoppers through the banner flag with the Node server SDK. They're marked `synthetic: true` and convert at 10% (old banner) vs. 13% (new).
+- README section "Set up the experiment" and demo script step 9.
 
 **Remaining:**
-1. Confirm the trial account includes Experimentation.
-2. Add `scripts/simulate-traffic.js`. It would use the Node server SDK with the SDK key from `.env` to send several hundred synthetic shoppers through the banner flag, with a slightly higher add-to-cart rate for the new banner. The data must be labeled synthetic in the code and the README.
-3. In LaunchDarkly, create a custom conversion metric on the `add-to-cart` event.
-4. Create an experiment on `homepage-promo-banner` with that metric, splitting the default-rule audience 50/50.
-5. Start the experiment, run the simulator, and record the result and the decision it supports in the README.
-
-**Estimate:** 1 to 1.5 hours.
+1. In LaunchDarkly, create the `Add to cart rate` metric (Occurrence (Percent) on `add-to-cart`).
+2. Design the experiment on `homepage-promo-banner`: default rule, 50/50, Bayesian; start it.
+3. Add `LD_SDK_KEY` to `.env`, run `npm run simulate`, and record the result and the decision it supports here.
 
 ### AI Configs
 
