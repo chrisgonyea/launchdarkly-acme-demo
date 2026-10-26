@@ -202,6 +202,8 @@ The full talk track, including testing in production before release, is in [docs
 
 - **Triggers are not instant.** In testing, LaunchDarkly applied a trigger 20 to 65 seconds after the call. A dashboard toggle reaches the page in about a second. The demo panel shows "waiting for LaunchDarkly (Ns)" while the watchdog waits.
 - **Use one browser tab while demoing the watchdog.** Every open tab reports errors to the same watchdog, which is realistic (many shoppers) but makes the counts jump.
+- **New events take a few minutes to appear in LaunchDarkly.** After the first "Add to cart" clicks, the metric screen's event list showed `add-to-cart` after about 3 minutes. You can also type the event key by hand.
+- **Ad and tracker blockers can block events.** Some blockers stop the browser reaching `events.launchdarkly.com`; flags still work, but clicks never count. The simulator sends from the server, so it isn't affected.
 - **"Simulate a bug" breaks a pretend backend service on the server**, not the page itself. That lets the watchdog health-check it even while the flag is off.
 
 ## Troubleshooting
